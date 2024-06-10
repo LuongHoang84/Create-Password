@@ -1,0 +1,385 @@
+import json
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
+from operator import itemgetter
+
+
+
+Account_Recovery = "File_Text/Account_Recovery.txt"
+Account_Something = "File_Text/Account_Password.txt"
+History_Create_Password = "File_Text/History_CreatePassword.txt"
+json_file_something = "File_Text/Account_Password.json"
+json_file_recovery = "File_Text/Account_Recovery.json"
+
+email_recovry = "aaaaa@gmail.com"
+password_recovery = "ptre mspv rkcx bmyw"
+email_something = "aaaa@gmail.com"
+password_something = "c f c r l t v s j y l r t s p n"
+
+def save_credentials():
+    name = input("Đây là Tài Khoản (Google, Youtube, ...): ").upper()
+    username = input("Nhập tên người dùng: ")
+    password = input("Nhập mật khẩu: ")
+    
+    while True:
+        choice = input("Đây là kiểu tài khoản nào?\n[1]: Không quan trọng\n[2]: [Recovery] Quan Trọng\n>> ")
+        if choice == "1":
+            while True:
+                check_url = input("Tài khoản này có URL không? (y/n): ")
+                if check_url.lower() == 'y':
+                    input_url = input("Nhập URL: ")
+                    if not input_url.startswith('https://'):
+                        url = 'https://' + input_url
+                        break
+                    else:
+                        url = input_url
+                        break
+                elif check_url.lower() == 'n':
+                    url = " "
+                    break
+                else:
+                    print("Vui lòng chọn y hoặc n")
+            break       
+        elif choice == "2":
+            break
+        else:
+            print("Vui lòng chọn y hoặc n.")
+
+    if choice == '1':
+        with open(Account_Something, 'a', encoding = "utf-8") as file:
+            file.write(f"URL: {url}\n")
+            file.write(f"[ {name} ]\n")
+            file.write(f"Username: {username}\n")
+            file.write(f"Password: {password}\n")
+            file.write("-" * 50 + "\n")
+        print("Dữ liệu đã được lưu thành công!")
+    elif choice == '2':
+        with open(Account_Recovery, 'a', encoding = "utf-8") as file:
+            file.write(f"[ {name} ]\n")
+            file.write(f"Username: {username}\n")
+            file.write(f"Password: {password}\n")
+            file.write("-" * 50 + "\n")
+        print("Dữ liệu đã được lưu thành công!")
+
+def send_email(lc):
+    if lc == '1':
+        from_email = email_recovry
+        to_email = email_recovry
+        password_email_from = password_recovery
+        file_data = Account_Recovery
+    elif lc == '2':
+        from_email = email_something
+        to_email = email_something
+        password_email_from = password_something
+        file_data = Account_Something
+
+    with open(file_data, 'rb') as file:
+        email_content = file.read().decode('utf-8', 'ignore')
+
+    msg = MIMEMultipart()
+    msg['From'] = from_email
+    msg['To'] = to_email
+    msg['Subject'] = "Update Tài Khoản & Mật Khẩu"
+
+    msg.attach(MIMEText(email_content, 'plain'))
+
+    # Mở và đọc nội dung từ tệp văn bản
+    with open(file_data, 'rb') as attachment:
+        part = MIMEBase('application', 'octet-stream')
+        part.set_payload(attachment.read())
+        encoders.encode_base64(part)
+        part.add_header("Content-Disposition", f"attachment; filename= {file_data}")
+        msg.attach(part)
+
+
+    # Kết nối và gửi email
+    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as connection:
+        connection.login(user = from_email, password = password_email_from)
+        connection.sendmail(from_addr = from_email,
+                            to_addrs = to_email,
+                            msg = msg.as_string())
+        
+    print("Gửi Email Thành Công!")
+    #Gmail: smtp.gmail.com
+    #Hotmail: smtp.live.com
+    #Outlook: outlook.office365.com
+    #Yahoo: smtp.mail.yahoo.com
+
+def lay_loai_tai_khoan(luachon):
+    if luachon == '1':
+        file_account = Account_Something
+    elif luachon == '2':
+        file_account = Account_Recovery
+
+    account_type = input("Nhập loại tài khoản (GOOGLE/ZALO/FACEBOOK,...): ").strip().upper()
+    loai_tai_khoan = ""
+    with open(file_account, 'r', encoding="utf-8") as file:
+        for line in file:
+            line = line.strip()
+            if line.startswith("[") and line.endswith("]"):
+                lay_tai_khoan = line[1:-1].strip().upper()
+                if account_type == lay_tai_khoan:
+                    loai_tai_khoan = lay_tai_khoan
+                    break
+    return loai_tai_khoan
+
+def lay_ten_tai_khoan(account_type, luachon):
+    if luachon == '1':
+        file_account = Account_Something
+    elif luachon == '2':
+        file_account = Account_Recovery
+
+    account_name = input("Nhập Username: ").strip()
+    ten_tai_khoan = ""
+    found_account = False
+    with open(file_account, 'r', encoding="utf-8") as file:
+        for line in file:
+            line = line.strip()
+            if line.startswith("[" + account_type.upper() + "]"):
+                for line in file:
+                    if line.startswith("Username:"):
+                        username = line[9:].strip()
+                        if username == account_name:
+                            ten_tai_khoan = username
+                            found_account = True
+                            break
+                if found_account:
+                    break
+    return ten_tai_khoan
+
+def chuyen_dulieu_qua_json(choice):
+    data = []
+    if choice == '1':
+        current_entry = {}
+        
+        with open(Account_Something, 'r', encoding='utf-8') as file:
+            for line in file:
+                line = line.strip()
+                if line.startswith("URL:"):
+                    if current_entry:
+                        data.append(current_entry)
+                    current_entry = {"URL": line.split(":",1)[1].strip()}
+                elif line.startswith("["):
+                    current_entry["Name"] = line[1:-1].strip()
+                elif line.startswith("Username:"):
+                    current_entry["Username"] = line.split(":")[1].strip()
+                elif line.startswith("Password:"):
+                    current_entry["Password"] = line.split(":",1)[1].strip()
+
+        if current_entry:
+            data.append(current_entry)
+
+    elif choice == '2':
+        with open(Account_Recovery, 'r', encoding='utf-8') as txt_file:
+            lines = txt_file.readlines()
+
+        current_entry = None
+        for line in lines:
+            line = line.strip()
+            if line.startswith("["):
+                if current_entry: 
+                    data.append(current_entry)
+                current_entry = {}
+                current_entry["Name"] = line[1:-1].strip()
+            elif line.startswith("Username:"):
+                current_entry["Username"] = line.split(":")[1].strip()
+            elif line.startswith("Password:"):
+                current_entry["Password"] = line.split(":",1)[1].strip()
+
+        if current_entry: 
+            data.append(current_entry)
+
+    return data
+
+def save_dulieu_json(data, choice):
+    if choice == '1':
+        with open(json_file_something, 'w', encoding='utf-8') as json_file:
+            json.dump(data, json_file, ensure_ascii=False, indent=4)
+    elif choice == '2':
+        with open(json_file_recovery, 'w', encoding='utf-8') as json_file:
+            json.dump(data, json_file, ensure_ascii=False, indent=4)
+
+def chuyen_dulieu_qua_txt(luachon):
+    if luachon == '1':
+        try:
+            with open(json_file_something, 'r', encoding="utf-8") as json_file:
+                data = json.load(json_file)
+            
+            with open(Account_Something, 'w', encoding="utf-8") as text_file:
+                for entry in data:
+                    text_file.write("URL: " + entry.get("URL") + "\n")
+                    text_file.write("[" + entry.get("Name") + "]\n")
+                    text_file.write("Username: " + entry.get("Username") + "\n")
+                    text_file.write("Password: " + entry.get("Password") + "\n")
+                    text_file.write("-" * 50 + "\n")
+            # print("Chuyển đổi thành công từ JSON sang text.")
+        except FileNotFoundError:
+            print("Không tìm thấy tệp JSON.")
+
+    elif luachon == '2':
+        try:
+            with open(json_file_recovery, 'r', encoding='utf-8') as json_file:
+                data = json.load(json_file)
+
+            with open(Account_Recovery, 'w', encoding='utf-8') as text_file:
+                for entry in data:
+                    text_file.write("[" + entry.get("Name") + "]\n")
+                    text_file.write("Username: " + entry.get("Username") + "\n")
+                    text_file.write("Password: " + entry.get("Password") + "\n")
+                    text_file.write("-" * 50 + "\n")
+        except FileNotFoundError:
+            print("Không tìm thấy tệp JSON.")
+
+def doi_matkhau(account_type, username, new_password, luachon):
+    if luachon == '1':
+        file_json = json_file_something
+        # lengh_indent = 4
+    elif luachon == '2':
+        file_json = json_file_recovery
+        # lengh_indent = 3
+    try:
+        with open(file_json, 'r', encoding="utf-8") as json_file:
+            data = json.load(json_file)
+        
+        found_account = False
+        for entry in data:
+            if entry.get('Name').upper() == account_type.upper() and entry.get('Username') == username:
+                entry['Password'] = new_password
+                found_account = True
+                break
+                
+        if not found_account:
+            print("Không tìm thấy tài khoản trong dữ liệu JSON.")
+            return
+                
+        with open(file_json, 'w', encoding="utf-8") as json_file:
+            json.dump(data, json_file, indent=4)
+            print("Mật khẩu đã được thay đổi thành công!")
+    except FileNotFoundError:
+        print("Không tìm thấy tệp JSON.")
+
+def Update_password(lc):
+    luachon = lc
+    data = chuyen_dulieu_qua_json(luachon)
+    save_dulieu_json(data, luachon)
+    account_type = lay_loai_tai_khoan(luachon)
+    if account_type == "":
+        print("Không có loại tài khoản này trong file!")
+        return
+    
+    username = lay_ten_tai_khoan(account_type, luachon)
+    if username == "":
+        print("Không có tài khoản này trong file!")
+        return
+    
+    new_password = input("Nhập mật khẩu mới cho tài khoản: ")
+    doi_matkhau(account_type, username, new_password, luachon)
+    chuyen_dulieu_qua_txt(luachon)
+
+
+
+def sap_xep_file_somthing():
+    with open(Account_Something, 'r', encoding="utf-8") as file:
+        lines = file.readlines()
+
+    data = []
+    current_entry = {}
+
+    for line in lines:
+        line = line.strip()
+        if line.startswith("URL:"):
+            if current_entry:  # Nếu current_entry không rỗng, thêm nó vào danh sách data
+                data.append(current_entry)
+            current_entry = {}  # Khởi tạo current_entry mới cho mục nhập tiếp theo
+            current_entry["URL"] = line.split(":", 1)[1].strip()
+        elif line.startswith("["):
+            current_entry["Name"] = line[1:-1].strip()
+        elif line.startswith("Username:"):
+            current_entry["Username"] = line.split(":")[1].strip()
+        elif line.startswith("Password:"):
+            current_entry["Password"] = line.split(":",1)[1].strip()
+
+    if current_entry:
+        data.append(current_entry)
+
+    sorted_data = sorted(data, key=itemgetter('Name'))
+
+    with open(Account_Something, 'w', encoding="utf-8") as file:
+        for entry in sorted_data:
+            file.write("URL: " + entry.get("URL") + "\n")
+            file.write("[" + entry.get("Name") + "]\n")
+            file.write("Username: " + entry.get("Username") + "\n")
+            file.write("Password: " + entry.get("Password") + "\n")
+            file.write("-" * 50 + "\n")
+
+    # print("Dữ liệu đã được sắp xếp thành công!")
+
+def sap_xep_file_recovery():
+    data = []
+
+    with open(Account_Recovery, 'r', encoding="utf-8") as file:
+        lines = file.readlines()
+    current_entry = None
+    for line in lines:
+        line = line.strip()
+        if line.startswith("["):
+            if current_entry:
+                data.append(current_entry)
+            current_entry = {}
+            current_entry["Name"] = line[1:-1].strip()
+        elif line.startswith("Username:"):
+            current_entry["Username"] = line.split(":")[1].strip()
+        elif line.startswith("Password:"):
+            current_entry["Password"] = line.split(":",1)[1].strip()
+
+    if current_entry:
+        data.append(current_entry)
+
+    sorted_data = sorted(data, key=itemgetter('Name'))
+
+    with open(Account_Recovery, 'w', encoding="utf-8") as file:
+        for entry in sorted_data:
+            file.write("[" + entry.get("Name") + "]\n")
+            file.write("Username: " + entry.get("Username") + "\n")
+            file.write("Password: " + entry.get("Password") + "\n")
+            file.write("-" * 50 + "\n")
+
+    # print("Dữ liệu đã được sắp xếp thành công!")
+
+
+def sort_data():
+    sap_xep_file_somthing()
+    sap_xep_file_recovery()
+
+
+def main():
+    sort_data()
+    choice = input("[1]: Thêm Tài Khoản\n[2]: Gửi Email\n[3]: Đổi Mật Khẩu\n[>>]: ")
+    if choice == '1':
+        check = False
+        while True:
+            if not check:
+                save_credentials()
+                check = True
+            else:
+                again = input("Again? (y/n): ")
+                if again == 'y':
+                    save_credentials()
+                elif again == 'n':
+                    break
+    elif choice == '2':
+        lc = input("Bạn muốn gửi mail tới máy chính hay máy phụ?\n[1]: Máy Chính\n[2]: Máy Phụ\n[>>]: ")
+        send_email(lc)
+    elif choice == '3':
+        lc = input("Bạn muốn thay đổi mật khẩu cho Account?\n[1]: Không Quan Trọng\n[2]: Quan Trọng\n[>>]: ")
+        Update_password(lc)
+    else:
+        print("Lựa Chọn Sai!")
+        
+    
+
+if __name__ == '__main__':
+    main()
